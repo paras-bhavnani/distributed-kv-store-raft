@@ -54,10 +54,17 @@ go test
 
 ### Part 3A: Leader Election
 
-- Implement Raft leader election and heartbeats (AppendEntries RPCs with no log entries).
-- Ensure a single leader is elected and remains the leader if there are no failures.
-- Implement proper term handling and vote request logic.
-- Handle leader failures and network partitions correctly.
+- Implemented Raft leader election and heartbeats (AppendEntries RPCs with no log entries).
+- Ensured a single leader is elected and remains the leader if there are no failures.
+- Implemented proper term handling and vote request logic.
+- Handled leader failures and network partitions correctly.
+
+### Part 3B: Log Replication
+
+- Implemented log replication functionality.
+- Ensured proper handling of AppendEntries RPCs for both heartbeats and log entries.
+- Implemented log consistency check and conflict resolution.
+- Added commit index management and log application to state machine.
 
 ## Testing
 
@@ -65,12 +72,14 @@ Run the provided test suite to validate your implementation:
 
 ```bash
 go test -run 3A
+go test -run 3B
 ```
 
 ## Current Status
 
-Part 3A (Leader Election) has been implemented and all related tests have passed successfully.
+Parts 3A (Leader Election) and 3B (Log Replication) have been implemented and all related tests have passed successfully.
 
 ## References
 
 This lab is part of MIT's 6.5840 Distributed Systems course.
+
