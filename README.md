@@ -66,6 +66,25 @@ go test
 - Implemented log consistency check and conflict resolution.
 - Added commit index management and log application to state machine.
 
+### Part 3C: Persistence (Hard)
+
+#### Description
+
+Task 3C required implementing persistence mechanisms so that Raft-based servers can recover from crashes and resume operation without losing consistency. This involved:
+
+- **Persisting State**:
+  - Persisted `currentTerm`, `votedFor`, and `log` as specified in Figure 2 of the Raft paper.
+  - Used the `Persister` object provided by MIT's framework to save and restore persistent state.
+
+- **Serialization**:
+  - Used the `labgob` encoder/decoder for serializing and deserializing persistent state into byte arrays.
+  - Implemented the `persist()` function to save state whenever it changed.
+  - Implemented the `readPersist()` function to restore state during server initialization.
+
+- **Log Recovery Optimization**:
+  - Implemented optimizations for backing up `nextIndex` by more than one entry at a time during log recovery.
+  - Handled rejection messages with additional metadata (`XTerm`, `XIndex`, `XLen`) to efficiently align follower logs with leaders.
+
 ## Testing
 
 Run the provided test suite to validate your implementation:
@@ -73,11 +92,69 @@ Run the provided test suite to validate your implementation:
 ```bash
 go test -run 3A
 go test -run 3B
+go test -run 3C
+```
+
+### Testing after Implementation of 3C
+
+Run the provided test suite multiple times to validate your implementation:
+
+```bash
+for i in {0..10}; do go test; done
+```
+
+Example output:
+
+```plaintext
+Test (3A): initial election ...
+  ... Passed --   3.6  3   60   16092    0
+Test (3A): election after network failure ...
+  ... Passed --   5.1  3  118   22892    0
+Test (3A): multiple elections ...
+  ... Passed --   7.1  7  594  117844    0
+Test (3B): basic agreement ...
+  ... Passed --   0.8  3   14    3762    3
+Test (3B): RPC byte count ...
+  ... Passed --   1.8  3   48  113666   11
+Test (3B): test progressive failure of followers ...
+  ... Passed --   4.8  3  108   23239    3
+Test (3B): test failure of leaders ...
+  ... Passed --   5.4  3  181   38304    3
+Test (3B): agreement after follower reconnects ...
+  ... Passed --   4.1  3   92   23905    7
+Test (3B): no agreement if too many followers disconnect ...
+  ... Passed --   3.8  5  187   40212    3
+Test (3B): concurrent Start()s ...
+  ... Passed --   1.1  3   22    6069    6
+Test (3B): rejoin of partitioned leader ...
+  ... Passed --   7.3  3  196   45906    4
+Test (3B): leader backs up quickly over incorrect follower logs ...
+  ... Passed --  15.4  5 2735 2941478  102
+Test (3B): RPC counts aren't too high ...
+  ... Passed --   2.1  3   47   14182   12
+Test (3C): basic persistence ...
+  ... Passed --   4.3  3   78   19414    6
+Test (3C): more persistence ...
+  ... Passed --  19.4  5 1024  220592   17
+Test (3C): partitioned leader and one follower crash, leader restarts ...
+  ... Passed --   2.2  3   34    8397    4
+Test (3C): Figure 8 ...
+  ... Passed --  32.9  5  827  181905   38
+Test (3C): unreliable agreement ...
+  ... Passed --   1.8  5 1117  358753  246
+Test (3C): Figure 8 (unreliable) ...
+  ... Passed --  36.5  5 18357 58907792  143
+Test (3C): churn ...
+  ... Passed --  16.1  5 15450 125333403 2737
+Test (3C): unreliable churn ...
+  ... Passed --  16.1  5 6519 4637723 1168
+
+  ... (runs 9 more times)
 ```
 
 ## Current Status
 
-Parts 3A (Leader Election) and 3B (Log Replication) have been implemented and all related tests have passed successfully.
+Parts 3A (Leader Election), 3B (Log Replication), and 3C (Persistence) have been implemented and all related tests have passed successfully.
 
 ## References
 

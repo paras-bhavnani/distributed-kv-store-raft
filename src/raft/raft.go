@@ -586,7 +586,7 @@ func (rf *Raft) becomeLeader() {
 	}
 
 	// Append a no-op entry to commit previous entries
-	rf.log = append(rf.log, LogEntry{Term: rf.currentTerm, Command: 0})
+	// rf.log = append(rf.log, LogEntry{Term: rf.currentTerm, Command: 0})
 	rf.persist()
 
 	// Reset heartbeat timer immediately
@@ -719,7 +719,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.currentTerm = 0
 	rf.votedFor = -1
 	rf.log = make([]LogEntry, 1)
-	rf.log[0] = LogEntry{Term: 0} // Dummy entry to match paper's 1-indexing
+	// rf.log[0] = LogEntry{Term: 0} // Dummy entry to match paper's 1-indexing
 	rf.state = "follower"
 
 	rf.commitIndex = 0
@@ -766,23 +766,21 @@ func (rf *Raft) getLastLogTerm() int {
 }
 
 func (rf *Raft) updateCommitIndex() {
-	// Don't acquire a lock here - it should be called with the lock already held
-
+	// For each log entry
 	for i := rf.commitIndex + 1; i < len(rf.log); i++ {
-		if rf.log[i].Term != rf.currentTerm {
-			continue
-		}
-
-		count := 1
+		// Count how many servers have this entry
+		count := 1 // Count ourselves
 		for peer := range rf.peers {
 			if peer != rf.me && rf.matchIndex[peer] >= i {
 				count++
 			}
 		}
 
-		if count > len(rf.peers)/2 {
+		// If majority and from current term, commit it
+		if count > len(rf.peers)/2 && rf.log[i].Term == rf.currentTerm {
 			rf.commitIndex = i
 		} else {
+			// No majority, stop checking further entries
 			break
 		}
 	}
