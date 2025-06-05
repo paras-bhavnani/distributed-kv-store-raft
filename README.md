@@ -156,6 +156,32 @@ Test (3C): unreliable churn ...
 
 Parts 3A (Leader Election), 3B (Log Replication), and 3C (Persistence) have been implemented and all related tests have passed successfully.
 
+Test 3D is failing intermittently, needs fixing current test run shows this:
+
+```
+go test -run 3D                                       
+Test (3D): snapshots basic ...
+  ... Passed --   5.7  3  192   73992  226
+Test (3D): install snapshots (disconnect) ...
+--- FAIL: TestSnapshotInstall3D (53.88s)
+    config.go:605: one(3388814983182284110) failed to reach agreement
+Test (3D): install snapshots (disconnect+unreliable) ...
+  ... Passed --  51.8  3 1236  533454  331
+Test (3D): install snapshots (crash) ...
+  ... Passed --  38.1  3  734  347582  286
+Test (3D): install snapshots (unreliable+crash) ...
+  ... Passed --  42.9  3  834  443290  356
+Test (3D): crash and restart all servers ...
+--- FAIL: TestSnapshotAllCrash3D (12.76s)
+    config.go:605: one(3681762713053052204) failed to reach agreement
+Test (3D): snapshot initialization after crash ...
+--- FAIL: TestSnapshotInit3D (13.53s)
+    config.go:605: one(92410175302122921) failed to reach agreement
+FAIL
+exit status 1
+FAIL    github.com/paras-bhavnani/distributed-kv-store-raft/raft        218.957s
+```
+
 ## References
 
 This lab is part of MIT's 6.5840 Distributed Systems course.
