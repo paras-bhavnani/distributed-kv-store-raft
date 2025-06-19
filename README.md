@@ -4,13 +4,19 @@ This branch contains the implementation of Lab 3 of MIT's 6.5840 Distributed Sys
 
 ## Overview
 
-Raft is a consensus algorithm designed to be easy to understand and implement. It provides a way for a cluster of servers to agree on a series of operations, even in the face of network partitions and server failures.
+Raft is a consensus algorithm designed to be easy to understand and implement. It provides a way for a cluster of servers to agree on a series of operations, even in the face of network partitions and server failures. It includes:
+
+- **3A**: Leader Election
+- **3B**: Log Replication
+- **3C**: Persistence
+- **3D**: Log Compaction with Snapshots (Complete)
 
 ## Key Features
 
 - **Leader Election**: Elects a leader among the servers to coordinate operations.
 - **Log Replication**: Ensures all servers maintain the same log of operations.
-- **Safety**: Guarantees that if any server has applied a particular log entry to its state machine, no other server will ever apply a different log entry for the same index.
+- **Persistence**: Survive crashes/restarts.
+- **Snapshotting**: Efficient log compaction and recovery (Part 3D).
 
 ## Project Structure
 
@@ -85,17 +91,38 @@ Task 3C required implementing persistence mechanisms so that Raft-based servers 
   - Implemented optimizations for backing up `nextIndex` by more than one entry at a time during log recovery.
   - Handled rejection messages with additional metadata (`XTerm`, `XIndex`, `XLen`) to efficiently align follower logs with leaders.
 
+### Part 3D: Log Compaction (Snapshots)
+
+In 3D, Raft supports log compaction using **snapshots** to avoid unbounded log growth. When the service layer indicates, Raft discards old log entries and persists a compact snapshot of the state up to a given index. If a follower falls far behind (or a server restarts), the leader sends snapshots using the `InstallSnapshot` RPC rather than replaying an unbounded log. See [Section 7 of the extended Raft paper](https://raft.github.io/raft.pdf) for the protocol details.
+
+Implemented:
+- `Snapshot(index, snapshot []byte)` to trim logs and persist snapshots.
+- `InstallSnapshot` RPC, supporting full state transfer and correct application.
+- Careful log indexing and persistence, even after crashes/restarts.
+- Memory management to enable Go’s GC to reclaim space.
+
+**Lab 3 is now fully complete and passes all tests, including the hardest cases in 3D.**
+
 ## Testing
 
 Run the provided test suite to validate your implementation:
+
+Run all 3A–3D tests:
+
+```bash
+go test
+```
+
+or selectively:
 
 ```bash
 go test -run 3A
 go test -run 3B
 go test -run 3C
+go test -run 3D
 ```
 
-### Testing after Implementation of 3C
+### Testing after Implementation of 3D
 
 Run the provided test suite multiple times to validate your implementation:
 
@@ -107,82 +134,97 @@ Example output:
 
 ```plaintext
 Test (3A): initial election ...
-  ... Passed --   3.6  3   60   16092    0
+  ... Passed --   3.6  3   60   16440    0
 Test (3A): election after network failure ...
-  ... Passed --   5.1  3  118   22892    0
+  ... Passed --   5.5  3  122   23886    0
 Test (3A): multiple elections ...
-  ... Passed --   7.1  7  594  117844    0
+  ... Passed --   6.1  7  426   91010    0
 Test (3B): basic agreement ...
-  ... Passed --   0.8  3   14    3762    3
+  ... Passed --   0.9  3   16    4394    3
 Test (3B): RPC byte count ...
-  ... Passed --   1.8  3   48  113666   11
+  ... Passed --   1.8  3   48  113846   11
 Test (3B): test progressive failure of followers ...
-  ... Passed --   4.8  3  108   23239    3
+  ... Passed --   4.9  3  110   23617    3
 Test (3B): test failure of leaders ...
-  ... Passed --   5.4  3  181   38304    3
+  ... Passed --   5.3  3  180   38568    3
 Test (3B): agreement after follower reconnects ...
-  ... Passed --   4.1  3   92   23905    7
+  ... Passed --   5.7  3  122   32996    8
 Test (3B): no agreement if too many followers disconnect ...
-  ... Passed --   3.8  5  187   40212    3
+  ... Passed --   3.8  5  170   36682    3
 Test (3B): concurrent Start()s ...
-  ... Passed --   1.1  3   22    6069    6
+  ... Passed --   1.1  3   26    7491    6
 Test (3B): rejoin of partitioned leader ...
-  ... Passed --   7.3  3  196   45906    4
+  ... Passed --   4.3  3  136   31440    4
 Test (3B): leader backs up quickly over incorrect follower logs ...
-  ... Passed --  15.4  5 2735 2941478  102
+  ... Passed --  17.8  5 2013 1879356  102
 Test (3B): RPC counts aren't too high ...
-  ... Passed --   2.1  3   47   14182   12
+  ... Passed --   2.7  3   56   17010   12
 Test (3C): basic persistence ...
-  ... Passed --   4.3  3   78   19414    6
+  ... Passed --   4.8  3   86   21996    6
 Test (3C): more persistence ...
-  ... Passed --  19.4  5 1024  220592   17
+  ... Passed --  16.5  5  832  186998   16
 Test (3C): partitioned leader and one follower crash, leader restarts ...
-  ... Passed --   2.2  3   34    8397    4
+  ... Passed --   2.1  3   32    8045    4
 Test (3C): Figure 8 ...
-  ... Passed --  32.9  5  827  181905   38
+  ... Passed --  34.0  5  776  321102   44
 Test (3C): unreliable agreement ...
-  ... Passed --   1.8  5 1117  358753  246
+  ... Passed --   1.8  5 1035  347675  246
 Test (3C): Figure 8 (unreliable) ...
-  ... Passed --  36.5  5 18357 58907792  143
+  ... Passed --  33.8  5 10732 21685840  129
 Test (3C): churn ...
-  ... Passed --  16.1  5 15450 125333403 2737
+  ... Passed --  16.1  5 8278 37921453 1859
 Test (3C): unreliable churn ...
-  ... Passed --  16.1  5 6519 4637723 1168
+  ... Passed --  16.4  5 4444 12783448  954
+Test (3D): snapshots basic ...
+  ... Passed --   4.1  3  295  115787  220
+Test (3D): install snapshots (disconnect) ...
+  ... Passed --  43.2  3 1479  779614  362
+Test (3D): install snapshots (disconnect+unreliable) ...
+  ... Passed --  46.4  3 1609  688265  316
+Test (3D): install snapshots (crash) ...
+  ... Passed --  31.0  3 1044  545885  323
+Test (3D): install snapshots (unreliable+crash) ...
+  ... Passed --  35.0  3 1226  712549  332
+Test (3D): crash and restart all servers ...
+  ... Passed --   9.0  3  230   67420   52
+Test (3D): snapshot initialization after crash ...
+  ... Passed --   3.3  3   68   19572   14
+PASS
+ok      github.com/paras-bhavnani/distributed-kv-store-raft/raft        361.306s
 
-  ... (runs 9 more times)
+  ... (runs 10 more times)
 ```
+
+(See `lab3.log` for a full run.)
 
 ## Current Status
 
-Parts 3A (Leader Election), 3B (Log Replication), and 3C (Persistence) have been implemented and all related tests have passed successfully.
+Parts 3A (Leader Election), 3B (Log Replication), 3C (Persistence), and 3D (Log Compaction) have been implemented and all related tests have passed successfully.
 
-Test 3D is failing intermittently, needs fixing current test run shows this:
+Test 3D now always passes:
 
 ```
-go test -run 3D                                       
+go test -run 3D
 Test (3D): snapshots basic ...
-  ... Passed --   5.7  3  192   73992  226
+  ... Passed --   4.3  3  310  117957  213
 Test (3D): install snapshots (disconnect) ...
---- FAIL: TestSnapshotInstall3D (53.88s)
-    config.go:605: one(3388814983182284110) failed to reach agreement
+  ... Passed --  42.9  3 1413  501127  295
 Test (3D): install snapshots (disconnect+unreliable) ...
-  ... Passed --  51.8  3 1236  533454  331
+  ... Passed --  46.9  3 1588  584697  315
 Test (3D): install snapshots (crash) ...
-  ... Passed --  38.1  3  734  347582  286
+  ... Passed --  31.9  3 1078  428997  319
 Test (3D): install snapshots (unreliable+crash) ...
-  ... Passed --  42.9  3  834  443290  356
+  ... Passed --  38.5  3 1210  468749  298
 Test (3D): crash and restart all servers ...
---- FAIL: TestSnapshotAllCrash3D (12.76s)
-    config.go:605: one(3681762713053052204) failed to reach agreement
+  ... Passed --   8.6  3  212   62022   47
 Test (3D): snapshot initialization after crash ...
---- FAIL: TestSnapshotInit3D (13.53s)
-    config.go:605: one(92410175302122921) failed to reach agreement
-FAIL
-exit status 1
-FAIL    github.com/paras-bhavnani/distributed-kv-store-raft/raft        218.957s
+  ... Passed --   3.2  3   68   19468   14
+PASS
+ok      github.com/paras-bhavnani/distributed-kv-store-raft/raft        176.567s
 ```
 
 ## References
 
-This lab is part of MIT's 6.5840 Distributed Systems course.
+- This project is for MIT’s [6.5840 Distributed Systems](http://nil.csail.mit.edu/6.5840/2024/index.html) (Spring 2024), Lab 3
+- [The Raft Paper](https://raft.github.io/raft.pdf)
 
